@@ -4,6 +4,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import mongoSanitize from 'express-mongo-sanitize';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
+import { connectDB } from './config/db.js';
 import { ENV } from './config/env.js';
 import { errorHandler } from './middlewares/error.js';
 import { apiLimiter } from './middlewares/rateLimiter.js';
@@ -22,9 +24,29 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 const app = express();
+let databaseConnectionPromise;
 
 // Trust proxy (required for secure cookies and accurate client IP behind Render/Vercel)
 app.set('trust proxy', 1);
+
+if (process.env.VERCEL) {
+  app.use(async (req, res, next) => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        if (!databaseConnectionPromise) {
+          databaseConnectionPromise = connectDB().catch((error) => {
+            databaseConnectionPromise = undefined;
+            throw error;
+          });
+        }
+        await databaseConnectionPromise;
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
+}
 
 // Security Headers
 app.use(helmet());

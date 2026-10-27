@@ -69,10 +69,11 @@ describe('Milestone 2 Acceptance Tests: Discovery & Booking', () => {
   });
 
   test('U-01: Slot computation respects weekly windows, 30-min grid, and minimum 2h advance notice', async () => {
-    // Find next Monday at least 2 days in the future
+    await User.findByIdAndUpdate(mentorId, { timezone: 'UTC' });
+
     const now = new Date();
-    const nextMonday = new Date(now);
-    nextMonday.setDate(now.getDate() + ((1 + 7 - now.getDay()) % 7 || 7));
+    const nextMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + ((1 + 7 - nextMonday.getUTCDay()) % 7 || 7));
     const mondayStr = nextMonday.toISOString().split('T')[0];
 
     const slots = await computeAvailableSlots(

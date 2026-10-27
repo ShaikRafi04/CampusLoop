@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "worker:auto-confirm": "node src/workers/autoConfirmWorker.js",
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --runInBand --detectOpenHandles --forceExit",
     "seed": "node src/scripts/seed.js"
   },

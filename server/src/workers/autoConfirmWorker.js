@@ -19,14 +19,19 @@ export const runAutoConfirmJob = async () => {
 // If run directly from CLI (e.g., node src/workers/autoConfirmWorker.js or cron container)
 if (process.argv[1]?.endsWith('autoConfirmWorker.js')) {
   (async () => {
+    let exitCode = 0;
     try {
       await connectDB();
-      await runAutoConfirmJob();
-      await disconnectDB();
-      process.exit(0);
+      const results = await runAutoConfirmJob();
+      if (results.errors.length > 0) {
+        exitCode = 1;
+      }
     } catch (err) {
       console.error('[AutoConfirmWorker] Fatal CLI runner error:', err);
-      process.exit(1);
+      exitCode = 1;
+    } finally {
+      await disconnectDB();
     }
+    process.exitCode = exitCode;
   })();
 }

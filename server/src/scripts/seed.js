@@ -21,8 +21,13 @@ import {
   NOTIFICATION_TYPES,
   AVAILABILITY_TYPES,
 } from '../config/enums.js';
+import { ENV } from '../config/env.js';
 
 export const seedDatabase = async () => {
+  if (ENV.NODE_ENV === 'production') {
+    throw new Error('The seed script is disabled in production because it creates known test accounts and replaces seed data.');
+  }
+
   console.log('[Seed] Starting CampusLoop database initialization...');
 
   // 1. Clean existing seed records
@@ -361,6 +366,9 @@ export const seedDatabase = async () => {
 if (process.argv[1]?.endsWith('seed.js')) {
   (async () => {
     try {
+      if (ENV.NODE_ENV === 'production') {
+        throw new Error('The seed script is disabled in production.');
+      }
       await connectDB();
       await seedDatabase();
       await disconnectDB();

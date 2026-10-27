@@ -65,7 +65,7 @@ CampusLoop is a decentralized peer-to-peer campus learning web application built
 | Layer | Technologies |
 |---|---|
 | **Frontend** | React 19, Vite 6, Tailwind CSS v4, Lucide React, Axios, React Router v7 |
-| **Backend** | Node.js v20+ (ES Modules), Express v4, Mongoose v8, Zod, Cookie-Parser, Helmet, Express-Rate-Limit |
+| **Backend** | Node.js >=20.19 (ES Modules), Express v4, Mongoose v8, Zod, Cookie-Parser, Helmet, Express-Rate-Limit |
 | **Database** | MongoDB (Replica Set required for multi-document ACID transactions) |
 | **Testing** | Jest 29, Supertest 7, Mongo-Memory-Server 10 (with Replica Set emulation) |
 
@@ -77,11 +77,11 @@ CampusLoop is a decentralized peer-to-peer campus learning web application built
 
 | Variable | Description | Example / Default |
 |---|---|---|
-| `NODE_ENV` | Application environment | `development` or `production` |
+| `NODE_ENV` | Application environment. Defaults to `production` if omitted. | `development`, `test`, or `production` |
 | `PORT` | HTTP server port | `5000` |
 | `MONGODB_URI` | MongoDB connection URI with replica set | `mongodb://localhost:27017/campusloop?replicaSet=rs0` |
-| `JWT_ACCESS_SECRET` | Secret key for signing access tokens (min 32 chars) | `your_access_secret_min_32_characters` |
-| `JWT_REFRESH_SECRET` | Secret key for signing refresh tokens (min 32 chars) | `your_refresh_secret_min_32_characters` |
+| `JWT_ACCESS_SECRET` | Secret key for signing access tokens (min 64 chars in production) | Generate a unique random secret |
+| `JWT_REFRESH_SECRET` | Secret key for signing refresh tokens (min 64 chars in production; must differ from the access secret) | Generate a separate unique random secret |
 | `CLIENT_ORIGINS` | Comma-separated allowed frontend origins for CORS | `http://localhost:5173,https://campusloop.vercel.app` |
 | `INITIAL_CREDIT_GRANT` | Default credits awarded on student signup | `50` |
 | `DEFAULT_TIMEZONE` | Fallback campus timezone for slot scheduling | `Asia/Kolkata` |
@@ -90,14 +90,14 @@ CampusLoop is a decentralized peer-to-peer campus learning web application built
 
 | Variable | Description | Example / Default |
 |---|---|---|
-| `VITE_API_BASE_URL` | Base endpoint URL for the Express API | `/api/v1` (dev proxy) or `https://campusloop-api.onrender.com/api/v1` |
+| `VITE_API_BASE_URL` | Base endpoint URL for the Express API. Use `/api/v1` with the included Vercel proxy, or an HTTPS API URL on a same-site custom domain. | `/api/v1` |
 
 ---
 
 ## 🚀 Local Development Setup
 
 ### Prerequisites
-- Node.js >= 20.x installed
+- Node.js >= 20.19 installed
 - npm >= 10.x
 - MongoDB with replica set enabled (or MongoDB Atlas free M0 cluster)
 
@@ -129,6 +129,7 @@ npm run seed
 ```
 
 **Seeded Test Credentials:**
+These credentials are for local/test environments only. The seed script is disabled when `NODE_ENV=production`; never use sample accounts or seed data in a live deployment.
 - **Admin**: `admin@campusloop.internal` / `AdminPassword123!`
 - **Student A (Mentor)**: `alice@campus.edu` / `StudentPass123!`
 - **Student B (Learner)**: `bob@campus.edu` / `StudentPass123!`
@@ -194,13 +195,25 @@ npm test
    - **Start Command**: `node src/server.js`
 4. Set Environment Variables in Render Dashboard:
    - `NODE_ENV`: `production`
-   - `PORT`: `10000`
    - `MONGODB_URI`: Your MongoDB Atlas connection URI (e.g. `mongodb+srv://<user>:<password>@cluster.mongodb.net/campusloop?retryWrites=true&w=majority`)
-   - `JWT_ACCESS_SECRET`: 64-character random string
-   - `JWT_REFRESH_SECRET`: 64-character random string
+   - `JWT_ACCESS_SECRET`: A unique random secret of at least 64 characters
+   - `JWT_REFRESH_SECRET`: A different unique random secret of at least 64 characters
    - `CLIENT_ORIGINS`: Your Vercel frontend URL (e.g. `https://campusloop.vercel.app`)
    - `INITIAL_CREDIT_GRANT`: `50`
    - `DEFAULT_TIMEZONE`: `Asia/Kolkata`
+   - Do not set `PORT` manually; Render supplies it. Production startup fails if the database URI, secrets, or HTTPS client origin is missing or invalid.
+5. Add a Render Cron Job for the 72-hour auto-confirmation worker. Use the same repository and `server` root directory, set the build command to `npm install`, and use `npm run worker:auto-confirm` as the start command. Copy the backend environment variables (including the database URI and secrets), and schedule it to run at least daily, for example `0 0 * * *` (UTC).
+
+### Deploy Backend to Vercel Instead
+
+The Express API can also run as a Vercel Node.js Function:
+
+1. Create a separate Vercel project for the API, using `server` as its Root Directory and the repository's Git connection.
+2. Set `NODE_ENV=production`, `MONGODB_URI` (a MongoDB replica-set URI), distinct random `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` values of at least 64 characters, `CLIENT_ORIGINS` (the exact HTTPS frontend origin), `INITIAL_CREDIT_GRANT=50`, and `DEFAULT_TIMEZONE=Asia/Kolkata` in the Vercel project settings. Add secrets directly in Vercel; do not commit them or copy local `.env` files.
+3. Deploy the API project. Its health endpoint is `/api/v1/health`.
+4. Update the frontend project's `client/vercel.json` API rewrite destination to the API project's production domain, then redeploy the frontend.
+
+The serverless API reuses MongoDB connections between warm invocations. Vercel Cron is a separate scheduled-function setup; the command-line auto-confirm worker is not automatically run by deploying the API.
 
 ### B. Deploy Frontend to Vercel
 
@@ -211,8 +224,11 @@ npm test
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 3. Configure Environment Variables in Vercel:
-   - `VITE_API_BASE_URL`: `https://your-render-service.onrender.com/api/v1`
-4. Deploy! The included `client/vercel.json` ensures client-side routing works for all deep URLs.
+   - `VITE_API_BASE_URL`: `/api/v1`
+4. Update the API rewrite destination in `client/vercel.json` to your Render service URL (keep the `/api/$1` suffix). This same-origin proxy also avoids third-party-cookie restrictions for authentication cookies.
+5. Deploy! The included `client/vercel.json` proxies API calls and ensures client-side routing works for deep URLs.
+
+The Vercel environment variable is embedded at build time. Set `VITE_API_BASE_URL` before deploying, and redeploy after changing it.
 
 ---
 

@@ -11,10 +11,10 @@ export const connectDB = async () => {
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 3000,
     });
-    console.log(`[DB] Connected to MongoDB at ${uri}`);
+    console.log('[DB] Connected to MongoDB.');
   } catch (err) {
     if (ENV.NODE_ENV === 'development') {
-      console.warn(`[DB] Could not connect to ${uri}. Initializing local in-memory replica set for development...`);
+      console.warn('[DB] Could not connect to MongoDB. Initializing local in-memory replica set for development...');
       try {
         const { MongoMemoryReplSet } = await import('mongodb-memory-server');
         mongod = await MongoMemoryReplSet.create({
@@ -22,7 +22,7 @@ export const connectDB = async () => {
         });
         uri = mongod.getUri();
         await mongoose.connect(uri);
-        console.log(`[DB] Connected to in-memory replica set at ${uri}`);
+        console.log('[DB] Connected to in-memory replica set.');
       } catch (memErr) {
         console.error('[DB] Failed to launch in-memory replica set:', memErr);
         throw err;
@@ -43,7 +43,7 @@ export const connectDB = async () => {
   } catch (txErr) {
     console.error('[DB] FATAL: Replica set transactions are NOT supported by this MongoDB instance.', txErr.message);
     if (ENV.NODE_ENV === 'production') {
-      process.exit(1);
+      throw txErr;
     } else {
       console.warn('[DB] WARNING: Running without replica set transactions in dev mode.');
     }
